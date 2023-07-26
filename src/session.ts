@@ -2,7 +2,7 @@ import c from "cookie";
 import { IncomingMessage, ServerResponse } from "http";
 import { nanoid } from "nanoid";
 import MemoryStore from "./memory-store";
-import { isDestroyed, isNew, isTouched } from "./symbol";
+import { isDestroyed, isNew, isTouched, isRegenerated } from "./symbol";
 import { Options, Session, SessionRecord } from "./types";
 import { commitHeader, hash } from "./utils";
 
@@ -38,6 +38,26 @@ export default function session<T extends SessionRecord = SessionRecord>(options
           this[isTouched] = true;
         },
       },
+      regenerate: {
+        value: async function commit(this: TypedSession) {
+          this.cookie.expires = new Date(1);
+          const prevId = this.id
+          commitHeader(res, name, this, encode)
+
+          const newId = genId()
+          await store.set(newId, this);
+          this.cookie.expires = new Date(_now + this.cookie.maxAge! * 1000);
+
+          Object.defineProperty(this, "id", { writable: true });
+          this.id = newId
+          Object.defineProperty(this, "id", { writable: false });
+
+          if (!autoCommit) commitHeader(res, name, { id: newId, cookie: this.cookie }, encode)
+
+          this[isRegenerated] = true
+          await store.destroy(prevId);
+        }
+      },
       destroy: {
         value: async function destroy(this: TypedSession) {
           this[isDestroyed] = true;
@@ -47,7 +67,12 @@ export default function session<T extends SessionRecord = SessionRecord>(options
           delete req.session;
         },
       },
-      id: { value: id },
+      id: {
+        value: id,
+        writable: false,
+        enumerable: false,
+        configurable: true,
+      },
     });
   }
 
@@ -55,13 +80,14 @@ export default function session<T extends SessionRecord = SessionRecord>(options
     req: IncomingMessage & { session?: TypedSession },
     res: ServerResponse
   ): Promise<TypedSession> {
-    if (req.session) return req.session;
+    if (req.session) return req.session
 
     const _now = Date.now();
 
     let sessionId = req.headers?.cookie
       ? c.parse(req.headers.cookie)[name]
       : null;
+
     if (sessionId && decode) {
       sessionId = decode(sessionId);
     }
@@ -108,6 +134,7 @@ export default function session<T extends SessionRecord = SessionRecord>(options
       decorateSession(req, res, session, sessionId, _now);
     }
 
+    // Object.defineProperty(session, "id", { writable: false, configurable: false });
     req.session = session;
 
     // prevSessStr is used to compare the session later
@@ -130,7 +157,8 @@ export default function session<T extends SessionRecord = SessionRecord>(options
         if (
           (session[isNew] && Object.keys(session).length > 1) ||
           session[isTouched] ||
-          session[isDestroyed]
+          session[isDestroyed] ||
+          session[isRegenerated]
         ) {
           commitHeader(res, name, session, encode);
         }

@@ -415,4 +415,38 @@ describe("session()", () => {
       { path: "/", headers: { cookie: "sid=foo" } }
     );
   });
+
+  test("regenerate session", async () => {
+    const v = {}
+    const store = {
+      get: async (id: string) => {
+        // console.log(`get: ${id} ${JSON.stringify(v[id])}`)
+        return v[id]
+      },
+      set: async (sid: string, sess: SessionData) => {
+        // console.log(`set: ${sid} ${JSON.stringify(sess)}`)
+        v[sid] = sess
+      },
+      destroy: async (id: string) => {
+        // console.log(`delete: ${id} ${JSON.stringify(v[id])}`)
+        delete v[id]
+      },
+    };
+    const config = { store, cookie: { maxAge: 1000 } }
+    const res = await inject(
+      async (req, res) => {
+        const sess = await session(config)(req, res);
+        sess.foo = 1
+        const prevId = sess.id
+        expect(req.session).toBe(sess);
+        await sess.regenerate()
+        const newSess = await session(config)(req, res);
+        expect(prevId === newSess.id).toBeFalsy()
+        expect(sess.foo).toBe(newSess.foo)
+        res.end();
+      },
+      { path: "/" }
+    );
+    expect(res.headers).toHaveProperty("set-cookie");
+  });
 });
