@@ -131,7 +131,7 @@ describe("session()", () => {
     );
     expect(store.get).toHaveBeenCalledWith(id);
   });
-  test("set session expiry if maxAge is set", async () => {
+  test("set session expiry if maxAgeInMs is set", async () => {
     const store = {
       get: jest.fn(),
       set: jest.fn(() => Promise.resolve()),
@@ -140,7 +140,7 @@ describe("session()", () => {
     let expires: Date;
     const res = await inject(
       async (req, res) => {
-        await session({ store, cookie: { maxAge: 10 } })(req, res);
+        await session({ store, cookie: { maxAgeInMs: 10 * 1000 } })(req, res);
         req.session.foo = "bar";
         id = req.session.id;
         expect(req.session.cookie.expires).toBeInstanceOf(Date);
@@ -155,7 +155,44 @@ describe("session()", () => {
     );
     expect(store.set).toHaveBeenCalledWith(id, {
       foo: "bar",
-      cookie: { ...defaultCookie, expires, maxAge: 10 },
+      cookie: { ...defaultCookie, expires, maxAge: 10 * 1000 },
+      [isNew]: true,
+    });
+    await inject(
+      async (req, res) => {
+        await session({ store })(req, res);
+        req.session.foo = "bar";
+        res.end();
+      },
+      { path: "/", headers: { cookie: `sid=${id}` } }
+    );
+    expect(store.get).toHaveBeenCalledWith(id);
+  })
+  test("set session expiry if maxAge is set", async () => {
+    const store = {
+      get: jest.fn(),
+      set: jest.fn(() => Promise.resolve()),
+    };
+    let id: string;
+    let expires: Date;
+    const res = await inject(
+      async (req, res) => {
+        await session({ store, cookie: { maxAge: 1 } })(req, res);
+        req.session.foo = "bar";
+        id = req.session.id;
+        expect(req.session.cookie.expires).toBeInstanceOf(Date);
+        expires = req.session.cookie.expires;
+        res.end();
+      },
+      { path: "/" }
+    );
+    expect(res.headers).toHaveProperty("set-cookie");
+    expect(res.headers["set-cookie"]).toBe(
+      `sid=${id}; Path=/; Expires=${expires.toUTCString()}; HttpOnly`
+    );
+    expect(store.set).toHaveBeenCalledWith(id, {
+      foo: "bar",
+      cookie: { ...defaultCookie, expires, maxAge: 1000 },
       [isNew]: true,
     });
     await inject(
@@ -264,7 +301,7 @@ describe("session()", () => {
     store.touch = jest.fn(() => Promise.resolve());
     const expires = new Date(Date.now() + 2000);
     await store.set("foo", {
-      cookie: { ...defaultCookie, expires, maxAge: 5 },
+      cookie: { ...defaultCookie, expires, maxAge: 5000 },
     });
     let newExpires: Date;
     const res = await inject(
@@ -281,7 +318,7 @@ describe("session()", () => {
       `sid=foo; Path=/; Expires=${newExpires.toUTCString()}; HttpOnly`
     );
     expect(store.touch).toHaveBeenCalledWith("foo", {
-      cookie: { ...defaultCookie, expires: newExpires, maxAge: 5 },
+      cookie: { ...defaultCookie, expires: newExpires, maxAge: 5000 },
       [isTouched]: true,
     });
   });

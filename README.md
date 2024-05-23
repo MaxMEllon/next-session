@@ -167,6 +167,7 @@ server.listen(8080);
 | cookie.domain   | Specifies the value for the **Domain** `Set-Cookie` attribute.                                                                               | unset                                    |
 | cookie.sameSite | Specifies the value for the **SameSite** `Set-Cookie` attribute.                                                                             | unset                                    |
 | cookie.maxAge   | **(in seconds)** Specifies the value for the **Max-Age** `Set-Cookie` attribute.                                                             | unset (Browser session)                  |
+| cookie.maxInAge | **(in mill seconds)** Specifies the value for the **Max-Age** `Set-Cookie` attribute. (for comatible express-session storage adapter)        | unset (Browser session)                  |
 
 ### touchAfter
 

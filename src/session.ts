@@ -34,7 +34,7 @@ export default function session<T extends SessionRecord = SessionRecord>(options
       },
       touch: {
         value: async function commit(this: TypedSession) {
-          this.cookie.expires = new Date(_now + this.cookie.maxAge! * 1000);
+          this.cookie.expires = new Date(_now + this.cookie.maxAge!);
           this[isTouched] = true;
         },
       },
@@ -82,8 +82,8 @@ export default function session<T extends SessionRecord = SessionRecord>(options
       // Extends the expiry of the session if options.touchAfter is sastified
       if (touchAfter >= 0 && session.cookie.expires) {
         const lastTouchedTime =
-          session.cookie.expires.getTime() - session.cookie.maxAge * 1000;
-        if (_now - lastTouchedTime >= touchAfter * 1000) {
+          session.cookie.expires.getTime() - session.cookie.maxAge;
+        if (_now - lastTouchedTime >= touchAfter) {
           session.touch();
         }
       }
@@ -100,8 +100,12 @@ export default function session<T extends SessionRecord = SessionRecord>(options
         },
       } as TypedSession;
       if (cookieOpts.maxAge) {
-        session.cookie.maxAge = cookieOpts.maxAge;
+        session.cookie.maxAge = cookieOpts.maxAge * 1000;
         session.cookie.expires = new Date(_now + cookieOpts.maxAge * 1000);
+      }
+      if (cookieOpts.maxAgeInMs) {
+        session.cookie.maxAge = cookieOpts.maxAgeInMs;
+        session.cookie.expires = new Date(_now + cookieOpts.maxAgeInMs);
       }
 
       // Add session methods

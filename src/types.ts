@@ -23,7 +23,10 @@ type Cookie = {
   secure: boolean;
   sameSite?: boolean | "lax" | "strict" | "none";
 } & (
-  | { maxAge?: undefined; expires?: undefined }
+  | {
+      maxAge?: undefined;
+      expires?: undefined;
+    }
   | {
       maxAge: number;
       expires: Date;
@@ -48,7 +51,9 @@ export interface Options {
     Pick<
       Cookie,
       "maxAge" | "httpOnly" | "path" | "domain" | "secure" | "sameSite"
-    >
+    > & {
+      maxAgeInMs: number
+    }
   >;
   autoCommit?: boolean;
 }
